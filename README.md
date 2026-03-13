@@ -33,10 +33,44 @@ $response = $app->handle($request);
 
 ### Add CORS and cache-control headers
 
-Before sending the response to the client, the HTTP response should include the appropriate CORS and cache-control headers. The `YourVendor\YourPackage\Http\CorsResponseEmitter` class decorates the response with these headers and then emits it.
+Before sending the response to the client, the HTTP response should include the appropriate CORS and cache-control headers. The `YourVendor\YourPackage\Http\CorsResponseEmitter` class validates the request `Origin` against an explicit allowlist, emits credentialed CORS headers only for allowed origins, and then emits the response.
 
 ```php
-$emitter = new CorsResponseEmitter();
+$emitter = new CorsResponseEmitter([
+    'https://app.example.com',
+    'https://admin.example.com',
+]);
+$emitter->emit($response);
+```
+
+The emitter applies the following resolution order on each request:
+
+| Scenario                                           | `Access-Control-Allow-Origin`                     | `Access-Control-Allow-Credentials` | `Vary`      |
+| -------------------------------------------------- | ------------------------------------------------- | ---------------------------------- | ----------- |
+| Request origin matches an explicit allowlist entry | Reflected origin (e.g. `https://app.example.com`) | `true`                             | `Origin`    |
+| `"*"` in allowlist, no explicit match              | `*`                                               | _(omitted)_                        | _(omitted)_ |
+| Origin missing or not in allowlist                 | _(omitted)_                                       | _(omitted)_                        | _(omitted)_ |
+
+> **Note:** The [CORS specification](https://fetch.spec.whatwg.org/#cors-protocol-and-credentials) forbids sending `Access-Control-Allow-Credentials: true` alongside `Access-Control-Allow-Origin: *`. When `"*"` is used, credentialed requests (those carrying cookies, HTTP authentication, or TLS client certificates) will be rejected by the browser. Use explicit origins for any endpoint that requires credentials.
+
+#### Wildcard origin
+
+Pass `"*"` as an allowlist entry to permit requests from any origin. This is suitable for fully public, unauthenticated APIs:
+
+```php
+$emitter = new CorsResponseEmitter(['*']);
+$emitter->emit($response);
+```
+
+#### Mixed allowlist
+
+Explicit origins and `"*"` may be combined. An exact match always takes precedence, receiving the credentialed response. Requests from any other origin fall back to the uncredentialed wildcard response:
+
+```php
+$emitter = new CorsResponseEmitter([
+    '*',
+    'https://app.example.com', // receives credentialed response
+]);
 $emitter->emit($response);
 ```
 
@@ -65,7 +99,11 @@ $request = $requestCreator->createServerRequestFromGlobals();
 // Handle the request and produce a response
 $response = $app->handle($request);
 
-// Emit the response with CORS and cache-control headers applied
-$emitter = new CorsResponseEmitter();
+// Emit the response with CORS/cache headers; use '*' for public APIs
+// or explicit origins for credentialed access
+$emitter = new CorsResponseEmitter([
+    'https://app.example.com',
+    'https://admin.example.com',
+]);
 $emitter->emit($response);
 ```

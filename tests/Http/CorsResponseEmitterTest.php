@@ -12,7 +12,7 @@ use YourVendor\YourPackage\Http\CorsResponseEmitter;
 /**
  * Verifies CORS/cache headers are applied before response emission.
  *
- * Ensures all responses emitted include consistent CORS and cache headers.
+ * Ensures credentialed CORS headers are only emitted for explicitly allowed origins.
  */
 final class CorsResponseEmitterTest extends TestCase
 {
@@ -29,16 +29,16 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Applies CORS/cache headers using the current request origin
-     * and asserts all headers are correctly applied.
+     * Applies CORS/cache headers when the current request origin is allowlisted
+     * and asserts all expected headers are correctly applied.
      *
      * @return void
      */
-    public function testEmitAddsCorsHeadersUsingRequestOrigin(): void
+    public function testEmitAddsCorsHeadersForAllowedRequestOrigin(): void
     {
         $_SERVER['HTTP_ORIGIN'] = 'https://example.com';
 
-        $emitter = new TestCorsResponseEmitter();
+        $emitter = new TestCorsResponseEmitter(['https://example.com']);
         $response = (new ResponseFactory())->createResponse(200);
 
         $emitter->emit($response);
@@ -56,19 +56,19 @@ final class CorsResponseEmitterTest extends TestCase
         $this->assertStringContainsString('no-store, no-cache, must-revalidate, max-age=0', $captured->getHeaderLine('Cache-Control'));
         $this->assertStringContainsString('post-check=0, pre-check=0', $captured->getHeaderLine('Cache-Control'));
         $this->assertSame('no-cache', $captured->getHeaderLine('Pragma'));
+        $this->assertSame('Origin', $captured->getHeaderLine('Vary'));
     }
 
     /**
-     * Uses an empty allow-origin value when no request origin is available
-     * and asserts the Access-Control-Allow-Origin header is empty.
+     * Omits allow-origin and credentials headers when no request origin is available.
      *
      * @return void
      */
-    public function testEmitSetsEmptyAllowOriginWhenRequestOriginMissing(): void
+    public function testEmitOmitsAllowOriginWhenRequestOriginMissing(): void
     {
         unset($_SERVER['HTTP_ORIGIN']);
 
-        $emitter = new TestCorsResponseEmitter();
+        $emitter = new TestCorsResponseEmitter(['https://example.com']);
         $response = (new ResponseFactory())->createResponse(200);
 
         $emitter->emit($response);
@@ -76,7 +76,31 @@ final class CorsResponseEmitterTest extends TestCase
         $captured = $emitter->capturedResponse;
 
         $this->assertNotNull($captured);
-        $this->assertSame('', $captured->getHeaderLine('Access-Control-Allow-Origin'));
+        $this->assertFalse($captured->hasHeader('Access-Control-Allow-Origin'));
+        $this->assertFalse($captured->hasHeader('Access-Control-Allow-Credentials'));
+        $this->assertFalse($captured->hasHeader('Vary'));
+    }
+
+    /**
+     * Omits allow-origin and credentials headers when request origin is not allowlisted.
+     *
+     * @return void
+     */
+    public function testEmitOmitsAllowOriginWhenRequestOriginIsNotAllowed(): void
+    {
+        $_SERVER['HTTP_ORIGIN'] = 'https://untrusted.example';
+
+        $emitter = new TestCorsResponseEmitter(['https://example.com']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        $emitter->emit($response);
+
+        $captured = $emitter->capturedResponse;
+
+        $this->assertNotNull($captured);
+        $this->assertFalse($captured->hasHeader('Access-Control-Allow-Origin'));
+        $this->assertFalse($captured->hasHeader('Access-Control-Allow-Credentials'));
+        $this->assertFalse($captured->hasHeader('Vary'));
     }
 
     /**
@@ -165,6 +189,124 @@ final class CorsResponseEmitterTest extends TestCase
         $this->assertSame('response-body', $innerBufferOutput);
         $this->assertStringContainsString('outer-buffer-response-body', $outerBufferOutput);
         $this->assertStringNotContainsString('inner-buffer-should-be-cleared', $outerBufferOutput);
+    }
+
+    /**
+     * Allows multiple origins to be allowlisted and verifies they are recognized.
+     *
+     * @return void
+     */
+    public function testEmitAddsCorsHeadersForMultipleAllowedOrigins(): void
+    {
+        $_SERVER['HTTP_ORIGIN'] = 'https://trusted.example';
+
+        $allowed = [
+            'https://example.com',
+            'https://trusted.example',
+            'https://another.example',
+        ];
+
+        $emitter = new TestCorsResponseEmitter($allowed);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        $emitter->emit($response);
+
+        $captured = $emitter->capturedResponse;
+        $this->assertNotNull($captured);
+        $this->assertSame('true', $captured->getHeaderLine('Access-Control-Allow-Credentials'));
+        $this->assertSame('https://trusted.example', $captured->getHeaderLine('Access-Control-Allow-Origin'));
+        $this->assertSame('Origin', $captured->getHeaderLine('Vary'));
+    }
+
+    /**
+     * Ensures that an empty allowlist always prevents emitting CORS credentials,
+     * even if $_SERVER['HTTP_ORIGIN'] is set.
+     *
+     * @return void
+     */
+    public function testEmitWithEmptyAllowlistOmitsCorsCredentials(): void
+    {
+        $_SERVER['HTTP_ORIGIN'] = 'https://example.com';
+
+        $emitter = new TestCorsResponseEmitter([]);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        $emitter->emit($response);
+
+        $captured = $emitter->capturedResponse;
+        $this->assertNotNull($captured);
+        $this->assertFalse($captured->hasHeader('Access-Control-Allow-Origin'));
+        $this->assertFalse($captured->hasHeader('Access-Control-Allow-Credentials'));
+        $this->assertFalse($captured->hasHeader('Vary'));
+    }
+
+    /**
+     * Emits `Access-Control-Allow-Origin: *` without credentials when `"*"` is the
+     * only allowlist entry, satisfying the CORS spec restriction.
+     *
+     * @return void
+     */
+    public function testEmitWithWildcardAllowlistSetsWildcardOriginWithoutCredentials(): void
+    {
+        $_SERVER['HTTP_ORIGIN'] = 'https://any.example';
+
+        $emitter = new TestCorsResponseEmitter(['*']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        $emitter->emit($response);
+
+        $captured = $emitter->capturedResponse;
+        $this->assertNotNull($captured);
+        $this->assertSame('*', $captured->getHeaderLine('Access-Control-Allow-Origin'));
+        $this->assertFalse($captured->hasHeader('Access-Control-Allow-Credentials'));
+        $this->assertFalse($captured->hasHeader('Vary'));
+    }
+
+    /**
+     * Emits `Access-Control-Allow-Origin: *` even when no request origin header is present,
+     * since the wildcard is a static, unconditional value.
+     *
+     * @return void
+     */
+    public function testEmitWithWildcardAllowlistSetsWildcardOriginWhenRequestOriginMissing(): void
+    {
+        unset($_SERVER['HTTP_ORIGIN']);
+
+        $emitter = new TestCorsResponseEmitter(['*']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        $emitter->emit($response);
+
+        $captured = $emitter->capturedResponse;
+        $this->assertNotNull($captured);
+        $this->assertSame('*', $captured->getHeaderLine('Access-Control-Allow-Origin'));
+        $this->assertFalse($captured->hasHeader('Access-Control-Allow-Credentials'));
+        $this->assertFalse($captured->hasHeader('Vary'));
+    }
+
+    /**
+     * Explicit origin match takes precedence over the wildcard entry.
+     *
+     * When `"*"` and specific origins are both in the allowlist, a request whose
+     * origin matches a specific entry should receive the credentialed response
+     * (`Access-Control-Allow-Origin: <origin>` + `Access-Control-Allow-Credentials: true`).
+     *
+     * @return void
+     */
+    public function testEmitPrefersExplicitOriginOverWildcard(): void
+    {
+        $_SERVER['HTTP_ORIGIN'] = 'https://example.com';
+
+        $emitter = new TestCorsResponseEmitter(['*', 'https://example.com']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        $emitter->emit($response);
+
+        $captured = $emitter->capturedResponse;
+        $this->assertNotNull($captured);
+        $this->assertSame('https://example.com', $captured->getHeaderLine('Access-Control-Allow-Origin'));
+        $this->assertSame('true', $captured->getHeaderLine('Access-Control-Allow-Credentials'));
+        $this->assertSame('Origin', $captured->getHeaderLine('Vary'));
     }
 }
 
