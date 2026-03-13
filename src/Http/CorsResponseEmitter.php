@@ -64,7 +64,7 @@ class CorsResponseEmitter extends ResponseEmitter
     {
         $response = $this->applyHeaders($response);
 
-        if (ob_get_contents()) {
+        if (ob_get_level() > 0) {
             ob_clean();
         }
 
