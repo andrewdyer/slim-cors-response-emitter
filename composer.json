@@ -18,7 +18,11 @@
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.75",
-    "phpunit/phpunit": "^10.5"
+    "phpunit/phpunit": "^10.5",
+    "slim/psr7": "^1.8"
+  },
+  "suggest": {
+    "slim/psr7": "Install a Slim-compatible PSR-7 implementation for HTTP message handling."
   },
   "scripts": {
     "cs": "php-cs-fixer fix",
