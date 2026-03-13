@@ -78,6 +78,94 @@ final class CorsResponseEmitterTest extends TestCase
         $this->assertNotNull($captured);
         $this->assertSame('', $captured->getHeaderLine('Access-Control-Allow-Origin'));
     }
+
+    /**
+     * Clears any stale output buffer content before emitting the response
+     * and asserts the response body is output without the buffered content.
+     *
+     * @return void
+     */
+    public function testEmitClearsNonEmptyOutputBuffer(): void
+    {
+        $response = (new ResponseFactory())->createResponse(200);
+        $response->getBody()->write('response-body');
+
+        $emitter = new CorsResponseEmitter();
+
+        $initialLevel = ob_get_level();
+        ob_start();
+        echo 'stale-buffered-content';
+
+        $emitter->emit($response);
+
+        $output = ob_get_contents();
+        ob_end_clean();
+
+        $this->assertSame($initialLevel, ob_get_level());
+        $this->assertStringNotContainsString('stale-buffered-content', $output);
+        $this->assertSame('response-body', $output);
+    }
+
+    /**
+     * Handles an active but empty output buffer without error
+     * and asserts the response body is emitted correctly.
+     *
+     * @return void
+     */
+    public function testEmitHandlesEmptyOutputBuffer(): void
+    {
+        $response = (new ResponseFactory())->createResponse(200);
+        $response->getBody()->write('response-body');
+
+        $emitter = new CorsResponseEmitter();
+
+        $initialLevel = ob_get_level();
+        ob_start();
+
+        $emitter->emit($response);
+
+        $output = ob_get_contents();
+        ob_end_clean();
+
+        $this->assertSame($initialLevel, ob_get_level());
+        $this->assertSame('response-body', $output);
+    }
+
+    /**
+     * Clears only the innermost output buffer when nested buffers are active
+     * and asserts outer buffer content is preserved while stale inner content is removed.
+     *
+     * @return void
+     */
+    public function testEmitClearsCurrentBufferWithoutAffectingOuterBuffer(): void
+    {
+        $response = (new ResponseFactory())->createResponse(200);
+        $response->getBody()->write('response-body');
+
+        $emitter = new CorsResponseEmitter();
+
+        $initialLevel = ob_get_level();
+
+        ob_start();
+        echo 'outer-buffer-';
+
+        ob_start();
+        echo 'inner-buffer-should-be-cleared';
+
+        $emitter->emit($response);
+
+        $innerBufferOutput = ob_get_contents();
+        ob_end_flush(); // flush inner buffer to outer
+
+        $outerBufferOutput = ob_get_contents();
+        ob_end_clean();
+
+        $this->assertSame($initialLevel, ob_get_level());
+        $this->assertStringNotContainsString('inner-buffer-should-be-cleared', $innerBufferOutput);
+        $this->assertSame('response-body', $innerBufferOutput);
+        $this->assertStringContainsString('outer-buffer-response-body', $outerBufferOutput);
+        $this->assertStringNotContainsString('inner-buffer-should-be-cleared', $outerBufferOutput);
+    }
 }
 
 /**
