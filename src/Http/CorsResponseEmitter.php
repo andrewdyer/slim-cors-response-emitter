@@ -23,15 +23,32 @@ class CorsResponseEmitter extends ResponseEmitter
     private array $allowedOrigins;
 
     /**
+     * Whether the wildcard `"*"` was present in the supplied allowlist.
+     *
+     * When true, and no explicit origin match is found, `Access-Control-Allow-Origin: *`
+     * is emitted **without** `Access-Control-Allow-Credentials` — the CORS specification
+     * forbids credentials with a wildcard origin value.
+     */
+    private bool $wildcardAllowed;
+
+    /**
      * @param list<string> $allowedOrigins Explicit allowlist of accepted request origins.
+     *                                     May include `"*"` to permit any origin without credentials.
      * @param int $responseChunkSize Maximum body chunk size emitted per iteration.
      */
     public function __construct(array $allowedOrigins = [], int $responseChunkSize = 4096)
     {
-        $this->allowedOrigins = array_values(array_unique(array_filter(
+        $normalized = array_unique(array_filter(
             array_map('trim', $allowedOrigins),
             static fn (string $origin): bool => $origin !== ''
-        )));
+        ));
+
+        $this->wildcardAllowed = in_array('*', $normalized, true);
+
+        $this->allowedOrigins = array_values(array_filter(
+            $normalized,
+            static fn (string $origin): bool => $origin !== '*'
+        ));
 
         parent::__construct($responseChunkSize);
     }
@@ -57,8 +74,14 @@ class CorsResponseEmitter extends ResponseEmitter
     /**
      * Returns a new response instance with validated CORS and no-cache headers.
      *
-     * `Access-Control-Allow-Origin` and credentials headers are only emitted when
-     * the current request origin is present in the configured allowlist.
+     * Resolution order:
+     *  1. If the request origin matches an explicit allowlist entry, emit a credentialed
+     *     response (`Access-Control-Allow-Origin: <origin>` + `Access-Control-Allow-Credentials: true`
+     *     + `Vary: Origin`).
+     *  2. If `"*"` was included in the allowlist and no explicit match was found, emit
+     *     `Access-Control-Allow-Origin: *` **without** `Access-Control-Allow-Credentials`
+     *     (the CORS specification forbids credentials with a wildcard origin value).
+     *  3. Otherwise, `Access-Control-Allow-Origin` is omitted entirely.
      *
      * @param ResponseInterface $response The response to decorate with headers.
      *
@@ -77,13 +100,18 @@ class CorsResponseEmitter extends ResponseEmitter
             ->withHeader('Pragma', 'no-cache');
 
         $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
-        if ($origin === null || !in_array($origin, $this->allowedOrigins, true)) {
-            return $response;
+
+        if ($origin !== null && in_array($origin, $this->allowedOrigins, true)) {
+            return $response
+                ->withHeader('Access-Control-Allow-Credentials', 'true')
+                ->withHeader('Access-Control-Allow-Origin', $origin)
+                ->withAddedHeader('Vary', 'Origin');
         }
 
-        return $response
-            ->withHeader('Access-Control-Allow-Credentials', 'true')
-            ->withHeader('Access-Control-Allow-Origin', $origin)
-            ->withAddedHeader('Vary', 'Origin');
+        if ($this->wildcardAllowed) {
+            return $response->withHeader('Access-Control-Allow-Origin', '*');
+        }
+
+        return $response;
     }
 }

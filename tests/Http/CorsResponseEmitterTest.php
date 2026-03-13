@@ -239,6 +239,75 @@ final class CorsResponseEmitterTest extends TestCase
         $this->assertFalse($captured->hasHeader('Access-Control-Allow-Credentials'));
         $this->assertFalse($captured->hasHeader('Vary'));
     }
+
+    /**
+     * Emits `Access-Control-Allow-Origin: *` without credentials when `"*"` is the
+     * only allowlist entry, satisfying the CORS spec restriction.
+     *
+     * @return void
+     */
+    public function testEmitWithWildcardAllowlistSetsWildcardOriginWithoutCredentials(): void
+    {
+        $_SERVER['HTTP_ORIGIN'] = 'https://any.example';
+
+        $emitter = new TestCorsResponseEmitter(['*']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        $emitter->emit($response);
+
+        $captured = $emitter->capturedResponse;
+        $this->assertNotNull($captured);
+        $this->assertSame('*', $captured->getHeaderLine('Access-Control-Allow-Origin'));
+        $this->assertFalse($captured->hasHeader('Access-Control-Allow-Credentials'));
+        $this->assertFalse($captured->hasHeader('Vary'));
+    }
+
+    /**
+     * Emits `Access-Control-Allow-Origin: *` even when no request origin header is present,
+     * since the wildcard is a static, unconditional value.
+     *
+     * @return void
+     */
+    public function testEmitWithWildcardAllowlistSetsWildcardOriginWhenRequestOriginMissing(): void
+    {
+        unset($_SERVER['HTTP_ORIGIN']);
+
+        $emitter = new TestCorsResponseEmitter(['*']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        $emitter->emit($response);
+
+        $captured = $emitter->capturedResponse;
+        $this->assertNotNull($captured);
+        $this->assertSame('*', $captured->getHeaderLine('Access-Control-Allow-Origin'));
+        $this->assertFalse($captured->hasHeader('Access-Control-Allow-Credentials'));
+        $this->assertFalse($captured->hasHeader('Vary'));
+    }
+
+    /**
+     * Explicit origin match takes precedence over the wildcard entry.
+     *
+     * When `"*"` and specific origins are both in the allowlist, a request whose
+     * origin matches a specific entry should receive the credentialed response
+     * (`Access-Control-Allow-Origin: <origin>` + `Access-Control-Allow-Credentials: true`).
+     *
+     * @return void
+     */
+    public function testEmitPrefersExplicitOriginOverWildcard(): void
+    {
+        $_SERVER['HTTP_ORIGIN'] = 'https://example.com';
+
+        $emitter = new TestCorsResponseEmitter(['*', 'https://example.com']);
+        $response = (new ResponseFactory())->createResponse(200);
+
+        $emitter->emit($response);
+
+        $captured = $emitter->capturedResponse;
+        $this->assertNotNull($captured);
+        $this->assertSame('https://example.com', $captured->getHeaderLine('Access-Control-Allow-Origin'));
+        $this->assertSame('true', $captured->getHeaderLine('Access-Control-Allow-Credentials'));
+        $this->assertSame('Origin', $captured->getHeaderLine('Vary'));
+    }
 }
 
 /**
