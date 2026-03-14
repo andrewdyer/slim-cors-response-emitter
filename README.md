@@ -33,7 +33,7 @@ $response = $app->handle($request);
 
 ### Add CORS and cache-control headers
 
-Before sending the response to the client, the HTTP response should include the appropriate CORS and cache-control headers. The `YourVendor\YourPackage\Http\CorsResponseEmitter` class validates the request `Origin` against an explicit allowlist, emits credentialed CORS headers only for allowed origins, and then emits the response.
+Before sending the response to the client, the HTTP response should include the appropriate CORS and cache-control headers. The `YourVendor\YourPackage\CorsResponseEmitter` class validates the request `Origin` against an explicit allowlist, emits credentialed CORS headers only for allowed origins, and then emits the response.
 
 ```php
 $emitter = new CorsResponseEmitter([
@@ -83,9 +83,7 @@ The following `bootstrap/app.php` demonstrates a fully working setup:
 
 declare(strict_types=1);
 
-use Slim\Factory\AppFactory;
-use Slim\Factory\ServerRequestCreatorFactory;
-use YourVendor\YourPackage\Http\CorsResponseEmitter;
+use Slim\Factory\AppFactory;use Slim\Factory\ServerRequestCreatorFactory;use YourVendor\YourPackage\CorsResponseEmitter;
 
 require __DIR__ . '/../vendor/autoload.php';
 

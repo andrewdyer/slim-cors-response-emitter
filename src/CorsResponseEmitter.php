@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace YourVendor\YourPackage\Http;
+namespace YourVendor\YourPackage;
 
 use Psr\Http\Message\ResponseInterface;
 use Slim\ResponseEmitter;
