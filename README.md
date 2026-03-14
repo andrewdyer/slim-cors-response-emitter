@@ -1,10 +1,10 @@
 # Slim CORS Response Emitter
 
-A configurable CORS response emitter for Slim applications.
+A CORS-aware response emitter for Slim applications.
 
 ## ✨ Introduction
 
-This library provides a dedicated HTTP response emitter for Slim applications that ensures consistent CORS and cache-control headers are applied before the response is sent to the client. It extends Slim’s default response emission behavior while introducing a simple, explicit allowlist for validating request origins, emitting credentialed CORS headers only when the incoming `Origin` matches an allowed entry and preventing cookies or authentication data from being exposed to untrusted domains. For public APIs, wildcard origins may also be configured to permit cross-origin access without credentials, allowing applications to centralize CORS response behavior in a single, predictable location.
+This library emits HTTP responses with consistent CORS and cache-control headers. It validates the incoming `Origin` against an explicit allowlist and emits credentialed CORS headers only for trusted origins. For public APIs, wildcard origins may be used to allow cross-origin access without credentials.
 
 ## 📥 Installation
 
@@ -12,38 +12,44 @@ This library provides a dedicated HTTP response emitter for Slim applications th
 composer require andrewdyer/slim-cors-response-emitter
 ```
 
+Requires PHP 8.3 or newer.
+
 ## 🚀 Getting Started
 
-These sections demonstrate how to initialize a Slim application and handle HTTP responses, including applying CORS and cache-control headers before sending the response to the client.
+The examples below demonstrate how to configure the emitter and emit a Slim response with CORS headers.
 
-### 1. Initialize the application
+### 1. Configure trusted origins
 
-Create the Slim application instance using the `Slim\Factory\AppFactory` class. This provides the foundation for routing, middleware, and handling requests.
-
-```php
-$app = AppFactory::create();
-```
-
-### 2. Create a PSR-7 request
-
-Create a PSR-7 request object from PHP globals using the `Slim\Factory\ServerRequestCreatorFactory` class. This ensures compatibility with the Slim application and middleware.
+Provide an allowlist of origins that may receive credentialed CORS responses.
 
 ```php
-$requestCreator = ServerRequestCreatorFactory::create();
-$request = $requestCreator->createServerRequestFromGlobals();
+$emitter = new CorsResponseEmitter([
+    'https://app.example.com',
+    'https://admin.example.com',
+]);
 ```
 
-### 3. Handle the request
+### 2. Emit the response
 
-Process the incoming request through the Slim application to produce a PSR-7 response.
+After Slim handles the request, pass the response to the emitter.
 
 ```php
-$response = $app->handle($request);
+$emitter->emit($response);
 ```
 
-### 4. Add CORS and cache-control headers
+## 🧩 Usage
 
-Before sending the response to the client, the HTTP response should include the appropriate CORS and cache-control headers. The `AndrewDyer\Slim\CorsResponseEmitter` class validates the request `Origin` against an explicit allowlist, emits credentialed CORS headers only for allowed origins, and then emits the response.
+The emitter resolves CORS headers from the request origin and allowlist configuration:
+
+| Scenario                                           | `Access-Control-Allow-Origin`                     | `Access-Control-Allow-Credentials` | `Vary`      |
+| -------------------------------------------------- | ------------------------------------------------- | ---------------------------------- | ----------- |
+| Request origin matches an explicit allowlist entry | Reflected origin (e.g. `https://app.example.com`) | `true`                             | `Origin`    |
+| `"*"` in allowlist, no explicit match              | `*`                                               | _(omitted)_                        | _(omitted)_ |
+| No match and no wildcard allowlist entry           | _(omitted)_                                       | _(omitted)_                        | _(omitted)_ |
+
+### Allow exact origins
+
+Use explicit origins when endpoints need credentialed cross-origin requests.
 
 ```php
 $emitter = new CorsResponseEmitter([
@@ -53,17 +59,7 @@ $emitter = new CorsResponseEmitter([
 $emitter->emit($response);
 ```
 
-## 🧩 Usage
-
-The emitter applies the following resolution order on each request:
-
-| Scenario                                           | `Access-Control-Allow-Origin`                     | `Access-Control-Allow-Credentials` | `Vary`      |
-| -------------------------------------------------- | ------------------------------------------------- | ---------------------------------- | ----------- |
-| Request origin matches an explicit allowlist entry | Reflected origin (e.g. `https://app.example.com`) | `true`                             | `Origin`    |
-| `"*"` in allowlist, no explicit match              | `*`                                               | _(omitted)_                        | _(omitted)_ |
-| Origin missing or not in allowlist                 | _(omitted)_                                       | _(omitted)_                        | _(omitted)_ |
-
-> **Note:** The [CORS specification](https://fetch.spec.whatwg.org/#cors-protocol-and-credentials) forbids sending `Access-Control-Allow-Credentials: true` alongside `Access-Control-Allow-Origin: *`. When `"*"` is used, credentialed requests (those carrying cookies, HTTP authentication, or TLS client certificates) will be rejected by the browser. Use explicit origins for any endpoint that requires credentials.
+### Allow any origin for public APIs
 
 A wildcard origin (`"*"`) may be configured as an allowlist entry to permit requests from any origin. This is suitable for fully public, unauthenticated APIs:
 
@@ -71,6 +67,8 @@ A wildcard origin (`"*"`) may be configured as an allowlist entry to permit requ
 $emitter = new CorsResponseEmitter(['*']);
 $emitter->emit($response);
 ```
+
+### Combine exact and wildcard origins
 
 Explicit origins and `"*"` may be combined. An exact match always takes precedence and receives the credentialed response. Requests from any other origin fall back to the uncredentialed wildcard response:
 
@@ -82,9 +80,11 @@ $emitter = new CorsResponseEmitter([
 $emitter->emit($response);
 ```
 
+Important: the [CORS specification](https://fetch.spec.whatwg.org/#cors-protocol-and-credentials) forbids sending `Access-Control-Allow-Credentials: true` with `Access-Control-Allow-Origin: *`. If an endpoint requires cookies, HTTP authentication, or client certificates, use explicit origins.
+
 ## 📘 Complete example
 
-The following example combines Slim application setup, request handling, and CORS-aware response emission:
+The following example combines Slim setup, request handling, and CORS-aware response emission:
 
 ```php
 <?php
@@ -97,18 +97,17 @@ use Slim\Factory\ServerRequestCreatorFactory;
 
 require __DIR__ . '/vendor/autoload.php';
 
-// Initialize the Slim application
+// Create the Slim application.
 $app = AppFactory::create();
 
-// Create a PSR-7 request from PHP globals
+// Build a PSR-7 request from PHP globals.
 $requestCreator = ServerRequestCreatorFactory::create();
 $request = $requestCreator->createServerRequestFromGlobals();
 
-// Handle the request and produce a response
+// Handle the request and get a response.
 $response = $app->handle($request);
 
-// Emit the response with CORS/cache headers; use '*' for public APIs
-// or explicit origins for credentialed access
+// Emit the response with CORS headers.
 $emitter = new CorsResponseEmitter([
     'https://app.example.com',
     'https://admin.example.com',
