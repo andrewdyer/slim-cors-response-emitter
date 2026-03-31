@@ -59,7 +59,7 @@ return $config->setRules([
     'normalize_index_brace' => true,
     'object_operator_without_whitespace' => true,
     'ordered_imports' => ['sort_algorithm' => 'alpha'],
-    'phpdoc_align' => ['align' => 'left'],
+    'phpdoc_align' => ['align' => 'vertical'],
     'phpdoc_indent' => true,
     'phpdoc_no_access' => true,
     'phpdoc_no_package' => true,
