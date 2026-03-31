@@ -10,16 +10,14 @@ use Psr\Http\Message\ResponseInterface;
 use Slim\Psr7\Factory\ResponseFactory;
 
 /**
- * Verifies CORS/cache headers are applied before response emission.
+ * Verifies CORS and cache header behavior during response emission.
  *
- * Ensures credentialed CORS headers are only emitted for explicitly allowed origins.
+ * @internal
  */
 final class CorsResponseEmitterTest extends TestCase
 {
     /**
-     * Clears request-origin global state after each test.
-     *
-     * Prevents global state from leaking between tests.
+     * Resets request-origin state between tests.
      *
      * @return void
      */
@@ -29,8 +27,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Applies CORS/cache headers when the current request origin is allowlisted
-     * and asserts all expected headers are correctly applied.
+     * Ensures allowlisted origins receive credentialed CORS headers.
      *
      * @return void
      */
@@ -60,7 +57,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Omits allow-origin and credentials headers when no request origin is available.
+     * Ensures missing request origin omits origin-specific CORS headers.
      *
      * @return void
      */
@@ -82,7 +79,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Omits allow-origin and credentials headers when request origin is not allowlisted.
+     * Ensures non-allowlisted origins do not receive credentialed CORS headers.
      *
      * @return void
      */
@@ -104,8 +101,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Clears any stale output buffer content before emitting the response
-     * and asserts the response body is output without the buffered content.
+     * Ensures stale buffered output is cleared before response emission.
      *
      * @return void
      */
@@ -131,8 +127,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Handles an active but empty output buffer without error
-     * and asserts the response body is emitted correctly.
+     * Ensures emission succeeds with an active but empty output buffer.
      *
      * @return void
      */
@@ -156,8 +151,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Clears only the innermost output buffer when nested buffers are active
-     * and asserts outer buffer content is preserved while stale inner content is removed.
+     * Ensures only the innermost buffer is cleared when nested buffers are active.
      *
      * @return void
      */
@@ -192,7 +186,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Allows multiple origins to be allowlisted and verifies they are recognized.
+     * Ensures any trusted origin in a multi-origin allowlist is accepted.
      *
      * @return void
      */
@@ -219,8 +213,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Ensures that an empty allowlist always prevents emitting CORS credentials,
-     * even if $_SERVER['HTTP_ORIGIN'] is set.
+     * Ensures an empty allowlist never emits credentialed CORS headers.
      *
      * @return void
      */
@@ -241,8 +234,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Emits `Access-Control-Allow-Origin: *` without credentials when `"*"` is the
-     * only allowlist entry, satisfying the CORS spec restriction.
+     * Ensures wildcard allowlists emit `Access-Control-Allow-Origin: *` without credentials.
      *
      * @return void
      */
@@ -263,8 +255,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Emits `Access-Control-Allow-Origin: *` even when no request origin header is present,
-     * since the wildcard is a static, unconditional value.
+     * Ensures wildcard allowlists emit a wildcard origin without request-origin input.
      *
      * @return void
      */
@@ -285,11 +276,7 @@ final class CorsResponseEmitterTest extends TestCase
     }
 
     /**
-     * Explicit origin match takes precedence over the wildcard entry.
-     *
-     * When `"*"` and specific origins are both in the allowlist, a request whose
-     * origin matches a specific entry should receive the credentialed response
-     * (`Access-Control-Allow-Origin: <origin>` + `Access-Control-Allow-Credentials: true`).
+     * Ensures explicit origin matches take precedence over wildcard allowlist entries.
      *
      * @return void
      */
@@ -311,22 +298,25 @@ final class CorsResponseEmitterTest extends TestCase
 }
 
 /**
- * Test helper emitter that captures the decorated response without output.
+ * Captures decorated responses without emitting output during tests.
  *
- * This avoids sending headers/output during unit tests while allowing
- * assertions against the modified response instance.
+ * @internal
  */
 final class TestCorsResponseEmitter extends CorsResponseEmitter
 {
     /**
-     * The response instance after header decoration.
+     * Captured response after header decoration.
      *
      * @var ResponseInterface|null
      */
     public ?ResponseInterface $capturedResponse = null;
 
     /**
-     * {@inheritDoc}
+     * Applies headers and stores the decorated response for assertions.
+     *
+     * @param ResponseInterface $response
+     *
+     * @return void
      */
     public function emit(ResponseInterface $response): void
     {
