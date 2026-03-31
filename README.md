@@ -1,6 +1,6 @@
 # Slim CORS Response Emitter
 
-A CORS-aware response emitter for Slim applications.
+A CORS-aware response emitter for Slim PHP applications, designed to ensure consistent and secure HTTP responses.
 
 ## Introduction
 
