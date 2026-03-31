@@ -39,8 +39,6 @@ class CorsResponseEmitter extends ResponseEmitter
      * @param list<string> $allowedOrigins    Explicit allowlist of accepted request origins.
      *                                        May include `"*"` to permit any origin without credentials.
      * @param int          $responseChunkSize Maximum body chunk size emitted per iteration.
-     *
-     * @return void Initializes internal state before delegating to the parent emitter.
      */
     public function __construct(array $allowedOrigins = [], int $responseChunkSize = 4096)
     {
