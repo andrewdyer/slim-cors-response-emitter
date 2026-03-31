@@ -28,13 +28,19 @@ class CorsResponseEmitter extends ResponseEmitter
      * When true, and no explicit origin match is found, `Access-Control-Allow-Origin: *`
      * is emitted **without** `Access-Control-Allow-Credentials` — the CORS specification
      * forbids credentials with a wildcard origin value.
+     *
+     * @var bool Indicates whether wildcard CORS emission is enabled.
      */
     private bool $wildcardAllowed;
 
     /**
-     * @param list<string> $allowedOrigins Explicit allowlist of accepted request origins.
-     *                                     May include `"*"` to permit any origin without credentials.
-     * @param int $responseChunkSize Maximum body chunk size emitted per iteration.
+     * Initializes the emitter with normalized allowlist values and chunk size.
+     *
+     * @param list<string> $allowedOrigins    Explicit allowlist of accepted request origins.
+     *                                        May include `"*"` to permit any origin without credentials.
+     * @param int          $responseChunkSize Maximum body chunk size emitted per iteration.
+     *
+     * @return void Initializes internal state before delegating to the parent emitter.
      */
     public function __construct(array $allowedOrigins = [], int $responseChunkSize = 4096)
     {
@@ -59,6 +65,8 @@ class CorsResponseEmitter extends ResponseEmitter
      * Applies CORS/cache headers, clears any active output buffer, and emits the response.
      *
      * @param ResponseInterface $response The response to emit.
+     *
+     * @return void Emits the decorated response to the client.
      */
     public function emit(ResponseInterface $response): void
     {
