@@ -35,6 +35,8 @@ The examples below demonstrate how to configure the emitter and emit a Slim resp
 Provide an allowlist of origins that may receive credentialed CORS responses.
 
 ```php
+use AndrewDyer\CorsResponseEmitter\CorsResponseEmitter;
+
 $emitter = new CorsResponseEmitter([
     'https://app.example.com',
     'https://admin.example.com',
@@ -64,6 +66,8 @@ The emitter resolves CORS headers from the request origin and allowlist configur
 Use explicit origins when endpoints need credentialed cross-origin requests.
 
 ```php
+use AndrewDyer\CorsResponseEmitter\CorsResponseEmitter;
+
 $emitter = new CorsResponseEmitter([
     'https://app.example.com',
     'https://admin.example.com',
@@ -76,6 +80,8 @@ $emitter->emit($response);
 A wildcard origin (`"*"`) may be configured as an allowlist entry to permit requests from any origin. This is suitable for fully public, unauthenticated APIs:
 
 ```php
+use AndrewDyer\CorsResponseEmitter\CorsResponseEmitter;
+
 $emitter = new CorsResponseEmitter(['*']);
 $emitter->emit($response);
 ```
@@ -85,6 +91,8 @@ $emitter->emit($response);
 Explicit origins and `"*"` may be combined. An exact match always takes precedence and receives the credentialed response. Requests from any other origin fall back to the uncredentialed wildcard response:
 
 ```php
+use AndrewDyer\CorsResponseEmitter\CorsResponseEmitter;
+
 $emitter = new CorsResponseEmitter([
     '*',
     'https://app.example.com', // receives credentialed response
@@ -103,7 +111,7 @@ The following example combines Slim setup, request handling, and CORS-aware resp
 
 declare(strict_types=1);
 
-use AndrewDyer\Slim\CorsResponseEmitter;
+use AndrewDyer\CorsResponseEmitter\CorsResponseEmitter;
 use Slim\Factory\AppFactory;
 use Slim\Factory\ServerRequestCreatorFactory;
 
