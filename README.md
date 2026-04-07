@@ -9,7 +9,7 @@
 
 # CORS Response Emitter
 
-A CORS-aware response emitter for Slim PHP applications, designed to ensure consistent and secure HTTP responses.
+A CORS-aware response emitter for [Slim Framework](https://www.slimframework.com/) applications, designed to ensure consistent and secure HTTP responses.
 
 ## Introduction
 
