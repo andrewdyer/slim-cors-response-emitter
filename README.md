@@ -23,7 +23,7 @@ This library emits HTTP responses with consistent CORS and cache-control headers
 ## 📥 Installation
 
 ```bash
-composer require andrewdyer/slim-cors-response-emitter
+composer require andrewdyer/cors-response-emitter
 ```
 
 ## 🚀 Getting Started
