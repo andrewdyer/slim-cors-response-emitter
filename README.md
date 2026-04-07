@@ -1,4 +1,4 @@
-![Slim CORS Response Emitter](https://public-assets.andrewdyer.rocks/images/covers/cors-response-emitter.png)
+![CORS Response Emitter](https://public-assets.andrewdyer.rocks/images/covers/cors-response-emitter.png)
 
 <p align="center">
   <a href="https://packagist.org/packages/andrewdyer/cors-response-emitter"><img src="https://poser.pugx.org/andrewdyer/cors-response-emitter/v/stable?style=for-the-badge" alt="Latest Stable Version"></a>
