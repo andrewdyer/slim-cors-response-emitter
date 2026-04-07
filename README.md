@@ -19,6 +19,7 @@ This library emits HTTP responses with consistent CORS and cache-control headers
 
 - **[PHP](https://www.php.net/)**: Version 8.3 or higher is required.
 - **[Composer](https://getcomposer.org/)**: Dependency management tool for PHP.
+- **[Slim Framework](https://www.slimframework.com/)**: Version 4 is required.
 
 ## Installation
 
