@@ -6,12 +6,12 @@
   "license": "MIT",
   "autoload": {
     "psr-4": {
-      "AndrewDyer\\Slim\\": "src/"
+      "AndrewDyer\\CorsResponseEmitter\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "AndrewDyer\\Slim\\Tests\\": "tests/"
+      "AndrewDyer\\CorsResponseEmitter\\Tests\\": "tests/"
     }
   },
   "require": {

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace AndrewDyer\Slim\Tests;
+namespace AndrewDyer\CorsResponseEmitter\Tests;
 
-use AndrewDyer\Slim\CorsResponseEmitter;
+use AndrewDyer\CorsResponseEmitter\CorsResponseEmitter;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Slim\Psr7\Factory\ResponseFactory;
